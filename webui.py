@@ -192,7 +192,12 @@ with shared.gradio_root:
 
                         with gr.Row():
                             inpaint_additional_prompt = gr.Textbox(placeholder="Describe what you want to inpaint.", elem_id='inpaint_additional_prompt', label='Inpaint Additional Prompt', visible=False)
-                            outpaint_selections = gr.CheckboxGroup(choices=['Left', 'Right', 'Top', 'Bottom'], value=[], label='Outpaint Direction')
+                            with gr.Group() as output_multiplier_group:
+                                outpaint_multiplier_l = gr.Slider(label='Left', minimum=0.0, maximum=1.0, step=0.05, value=0)
+                                outpaint_multiplier_r = gr.Slider(label='Right', minimum=0.0, maximum=1.0, step=0.05, value=0)
+                                outpaint_multiplier_t = gr.Slider(label='Top', minimum=0.0, maximum=1.0, step=0.05, value=0)
+                                outpaint_multiplier_b = gr.Slider(label='Bottom', minimum=0.0, maximum=1.0, step=0.05, value=0)
+                            outpaint_multiplier_ctrls = [outpaint_multiplier_l, outpaint_multiplier_r, outpaint_multiplier_t, outpaint_multiplier_b]
                             inpaint_mode = gr.Dropdown(choices=modules.flags.inpaint_options, value=modules.flags.inpaint_option_default, label='Method')
                         example_inpaint_prompts = gr.Dataset(samples=modules.config.example_inpaint_prompts, label='Additional Prompt Quick List', components=[inpaint_additional_prompt], visible=False)
                         gr.HTML('* Powered by Fooocus Inpaint Engine <a href="https://github.com/lllyasviel/Fooocus/discussions/414" target="_blank">\U0001F4D4 Document</a>')
@@ -435,7 +440,7 @@ with shared.gradio_root:
                                                                  '(default is 0, always process before any mask invert)')
                         inpaint_mask_upload_checkbox = gr.Checkbox(label='Enable Mask Upload', value=False)
                         invert_mask_checkbox = gr.Checkbox(label='Invert Mask', value=False)
-                        
+
                         inpaint_ctrls = [debugging_inpaint_preprocessor, inpaint_disable_initial_latent, inpaint_engine,
                                          inpaint_strength, inpaint_respective_field,
                                          inpaint_mask_upload_checkbox, invert_mask_checkbox, inpaint_erode_or_dilate]
@@ -501,29 +506,36 @@ with shared.gradio_root:
 
             if mode == modules.flags.inpaint_option_detail:
                 return [
-                    gr.update(visible=True), gr.update(visible=False, value=[]),
+                    gr.update(visible=True),
                     gr.Dataset.update(visible=True, samples=modules.config.example_inpaint_prompts),
-                    False, 'None', 0.5, 0.0
+                    False, 'None', 0.5, 0.0, gr.update(visible=False), gr.update(value=0), gr.update(value=0),
+                    gr.update(value=0), gr.update(value=0)
                 ]
 
             if mode == modules.flags.inpaint_option_modify:
                 return [
-                    gr.update(visible=True), gr.update(visible=False, value=[]),
+                    gr.update(visible=True),
                     gr.Dataset.update(visible=False, samples=modules.config.example_inpaint_prompts),
-                    True, modules.config.default_inpaint_engine_version, 1.0, 0.0
+                    True, modules.config.default_inpaint_engine_version, 1.0, 0.0,
+                    gr.update(visible=False),
+                    gr.update(value=0), gr.update(value=0),
+                    gr.update(value=0), gr.update(value=0)
                 ]
 
             return [
-                gr.update(visible=False, value=''), gr.update(visible=True),
+                gr.update(visible=False, value=''),
                 gr.Dataset.update(visible=False, samples=modules.config.example_inpaint_prompts),
-                False, modules.config.default_inpaint_engine_version, 1.0, 0.618
+                False, modules.config.default_inpaint_engine_version, 1.0, 0.618,
+                gr.update(visible=True),
+                gr.update(visible=True), gr.update(visible=True),
+                gr.update(visible=True), gr.update(visible=True)
             ]
 
         inpaint_mode.input(inpaint_mode_change, inputs=inpaint_mode, outputs=[
-            inpaint_additional_prompt, outpaint_selections, example_inpaint_prompts,
+            inpaint_additional_prompt, example_inpaint_prompts,
             inpaint_disable_initial_latent, inpaint_engine,
-            inpaint_strength, inpaint_respective_field
-        ], show_progress=False, queue=False)
+            inpaint_strength, inpaint_respective_field, output_multiplier_group
+        ] + outpaint_multiplier_ctrls, show_progress=False, queue=False)
 
         ctrls = [
             prompt, negative_prompt, style_selections,
@@ -533,7 +545,8 @@ with shared.gradio_root:
         ctrls += [base_model, refiner_model, refiner_switch] + lora_ctrls
         ctrls += [input_image_checkbox, current_tab]
         ctrls += [uov_method, uov_input_image]
-        ctrls += [outpaint_selections, inpaint_input_image, inpaint_additional_prompt, inpaint_mask_image]
+        ctrls += outpaint_multiplier_ctrls
+        ctrls += [inpaint_input_image, inpaint_additional_prompt, inpaint_mask_image]
         ctrls += ip_ctrls
 
         state_is_generating = gr.State(False)

@@ -136,7 +136,7 @@ def worker():
         current_tab = args.pop()
         uov_method = args.pop()
         uov_input_image = args.pop()
-        outpaint_selections = args.pop()
+        outpaint_multipliers = args.pop()
         inpaint_input_image = args.pop()
         inpaint_additional_prompt = args.pop()
         inpaint_mask_image_upload = args.pop()
@@ -150,7 +150,8 @@ def worker():
             if cn_img is not None:
                 cn_tasks[cn_type].append([cn_img, cn_stop, cn_weight])
 
-        outpaint_selections = [o.lower() for o in outpaint_selections]
+        outpaint_multipliers = [float(0) for o in outpaint_multipliers]
+        print(f"Outpaint multipliers: {outpaint_multipliers}")
         base_model_additional_loras = []
         raw_style_selections = copy.deepcopy(style_selections)
         uov_method = uov_method.lower()
@@ -275,7 +276,7 @@ def worker():
                     and isinstance(inpaint_input_image, dict):
                 inpaint_image = inpaint_input_image['image']
                 inpaint_mask = inpaint_input_image['mask'][:, :, 0]
-                
+
                 if advanced_parameters.inpaint_mask_upload_checkbox:
                     if isinstance(inpaint_mask_image_upload, np.ndarray):
                         if inpaint_mask_image_upload.ndim == 3:
@@ -293,7 +294,7 @@ def worker():
 
                 inpaint_image = HWC3(inpaint_image)
                 if isinstance(inpaint_image, np.ndarray) and isinstance(inpaint_mask, np.ndarray) \
-                        and (np.any(inpaint_mask > 127) or len(outpaint_selections) > 0):
+                        and (np.any(inpaint_mask > 127) or any(x > 0 for x in outpaint_multipliers)):
                     progressbar(async_task, 1, 'Downloading upscale models ...')
                     modules.config.downloading_upscale_model()
                     if inpaint_parameterized:
@@ -540,27 +541,17 @@ def worker():
             print(f'Final resolution is {str((height, width))}.')
 
         if 'inpaint' in goals:
-            if len(outpaint_selections) > 0:
+            if any(x > 0 for x in outpaint_multipliers):
                 H, W, C = inpaint_image.shape
-                if 'top' in outpaint_selections:
-                    inpaint_image = np.pad(inpaint_image, [[int(H * 0.3), 0], [0, 0], [0, 0]], mode='edge')
-                    inpaint_mask = np.pad(inpaint_mask, [[int(H * 0.3), 0], [0, 0]], mode='constant',
-                                          constant_values=255)
-                if 'bottom' in outpaint_selections:
-                    inpaint_image = np.pad(inpaint_image, [[0, int(H * 0.3)], [0, 0], [0, 0]], mode='edge')
-                    inpaint_mask = np.pad(inpaint_mask, [[0, int(H * 0.3)], [0, 0]], mode='constant',
-                                          constant_values=255)
-
-                H, W, C = inpaint_image.shape
-                if 'left' in outpaint_selections:
-                    inpaint_image = np.pad(inpaint_image, [[0, 0], [int(H * 0.3), 0], [0, 0]], mode='edge')
-                    inpaint_mask = np.pad(inpaint_mask, [[0, 0], [int(H * 0.3), 0]], mode='constant',
-                                          constant_values=255)
-                if 'right' in outpaint_selections:
-                    inpaint_image = np.pad(inpaint_image, [[0, 0], [0, int(H * 0.3)], [0, 0]], mode='edge')
-                    inpaint_mask = np.pad(inpaint_mask, [[0, 0], [0, int(H * 0.3)]], mode='constant',
-                                          constant_values=255)
-
+                inpaint_image = np.pad(inpaint_image,
+                                       [[int(H * outpaint_multipliers[2]), int(H * outpaint_multipliers[3])],
+                                        [int(W * outpaint_multipliers[0]), (int(W * outpaint_multipliers[1]))],
+                                        [0, 0]],
+                                       mode='edge')
+                inpaint_mask = np.pad(inpaint_mask,
+                                      [[int(H * outpaint_multipliers[2]), int(H * outpaint_multipliers[3])],
+                                       [int(W * outpaint_multipliers[0]), (int(W * outpaint_multipliers[1]))]],
+                                      mode='constant', constant_values=255)
                 inpaint_image = np.ascontiguousarray(inpaint_image.copy())
                 inpaint_mask = np.ascontiguousarray(inpaint_mask.copy())
                 advanced_parameters.inpaint_strength = 1.0
