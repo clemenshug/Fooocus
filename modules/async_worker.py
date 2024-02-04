@@ -136,7 +136,7 @@ def worker():
         current_tab = args.pop()
         uov_method = args.pop()
         uov_input_image = args.pop()
-        outpaint_multipliers = args.pop()
+        outpaint_multipliers = [float(args.pop()) for _ in range(4)]
         inpaint_input_image = args.pop()
         inpaint_additional_prompt = args.pop()
         inpaint_mask_image_upload = args.pop()
@@ -150,8 +150,6 @@ def worker():
             if cn_img is not None:
                 cn_tasks[cn_type].append([cn_img, cn_stop, cn_weight])
 
-        outpaint_multipliers = [float(0) for o in outpaint_multipliers]
-        print(f"Outpaint multipliers: {outpaint_multipliers}")
         base_model_additional_loras = []
         raw_style_selections = copy.deepcopy(style_selections)
         uov_method = uov_method.lower()
