@@ -32,6 +32,7 @@ def worker():
     import modules.inpaint_worker as inpaint_worker
     import modules.constants as constants
     import modules.advanced_parameters as advanced_parameters
+    import modules.prompt_processing
     import extras.ip_adapter as ip_adapter
     import extras.face_crop
     import fooocus_version
@@ -380,6 +381,9 @@ def worker():
                 task_rng = random.Random(task_seed)  # may bind to inpaint noise in the future
 
                 task_prompt = apply_wildcards(prompt, task_rng)
+                task_prompt_initial = modules.prompt_processing.get_learned_conditioning_prompt_schedules(
+                    [task_prompt], base_steps=steps
+                )[0][0].cond
                 task_negative_prompt = apply_wildcards(negative_prompt, task_rng)
                 task_extra_positive_prompts = [apply_wildcards(pmt, task_rng) for pmt in extra_positive_prompts]
                 task_extra_negative_prompts = [apply_wildcards(pmt, task_rng) for pmt in extra_negative_prompts]
@@ -389,7 +393,7 @@ def worker():
 
                 if use_style:
                     for s in style_selections:
-                        p, n = apply_style(s, positive=task_prompt)
+                        p, n = apply_style(s, positive=task_prompt_initial)
                         positive_basic_workloads = positive_basic_workloads + p
                         negative_basic_workloads = negative_basic_workloads + n
                 else:
@@ -406,6 +410,7 @@ def worker():
                 tasks.append(dict(
                     task_seed=task_seed,
                     task_prompt=task_prompt,
+                    task_prompt_initial=task_prompt_initial,
                     task_negative_prompt=task_negative_prompt,
                     positive=positive_basic_workloads,
                     negative=negative_basic_workloads,
@@ -421,21 +426,52 @@ def worker():
             if use_expansion:
                 for i, t in enumerate(tasks):
                     progressbar(async_task, 5, f'Preparing Fooocus text #{i + 1} ...')
-                    expansion = pipeline.final_expansion(t['task_prompt'], t['task_seed'])
+                    expansion = pipeline.final_expansion(t['task_prompt_initial'], t['task_seed'])
                     print(f'[Prompt Expansion] {expansion}')
                     t['expansion'] = expansion
+                    # expansion is a separate entry in vector, will be folded
                     t['positive'] = copy.deepcopy(t['positive']) + [expansion]  # Deep copy.
 
             for i, t in enumerate(tasks):
+                progressbar(async_task, 7, f'Processing prompt edits #{i + 1} ...')
+                # import ipdb; ipdb.set_trace()
+                positive_basic_workloads_schedule = modules.prompt_processing.get_learned_conditioning_prompt_schedules(
+                    t['positive'], base_steps=steps
+                )
+                negative_basic_workloads_schedule = modules.prompt_processing.get_learned_conditioning_prompt_schedules(
+                    t['negative'], base_steps=steps
+                )
+                t['positive_edits'] = modules.prompt_processing.collate_schedules(positive_basic_workloads_schedule)
+                t['negative_edits'] = modules.prompt_processing.collate_schedules(negative_basic_workloads_schedule)
+
+            for i, t in enumerate(tasks):
+                print("task prep")
+                # import ipdb; ipdb.set_trace()
                 progressbar(async_task, 7, f'Encoding positive #{i + 1} ...')
-                t['c'] = pipeline.clip_encode(texts=t['positive'], pool_top_k=t['positive_top_k'])
+                t['c'] = []
+                for p in t['positive_edits']:
+                    c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
+                    if p[0] != 0 or p[1] != steps:
+                        c[0][1]["start_percent"] = p[0] / steps
+                        c[0][1]["end_percent"] = p[1] / steps
+                    # c[0][1]["timestep_start"] = p[0]
+                    # c[0][1]["timestep_end"] = p[1]
+                    t['c'].extend(c)
 
             for i, t in enumerate(tasks):
                 if abs(float(cfg_scale) - 1.0) < 1e-4:
                     t['uc'] = pipeline.clone_cond(t['c'])
                 else:
                     progressbar(async_task, 10, f'Encoding negative #{i + 1} ...')
-                    t['uc'] = pipeline.clip_encode(texts=t['negative'], pool_top_k=t['negative_top_k'])
+                    t['uc'] = []
+                    for p in t['negative_edits']:
+                        c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
+                        if p[0] != 0 or p[1] != steps:
+                            c[0][1]["start_percent"] = p[0] / steps
+                            c[0][1]["end_percent"] = p[1] / steps
+                        # c[0][1]["timestep_start"] = p[0]
+                        # c[0][1]["timestep_end"] = p[1]
+                        t['uc'].extend(c)
 
         if len(goals) > 0:
             progressbar(async_task, 13, 'Image processing ...')
@@ -718,6 +754,7 @@ def worker():
         async_task.yields.append(['preview', (13, 'Moving model to GPU ...', None)])
 
         def callback(step, x0, x, total_steps, y):
+            # print("async worker callback")
             done_steps = current_task_id * steps + step
             async_task.yields.append(['preview', (
                 int(15.0 + 85.0 * float(done_steps) / float(all_steps)),
