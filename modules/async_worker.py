@@ -393,7 +393,7 @@ def worker():
 
                 if use_style:
                     for s in style_selections:
-                        p, n = apply_style(s, positive=task_prompt_initial)
+                        p, n = apply_style(s, positive=task_prompt)
                         positive_basic_workloads = positive_basic_workloads + p
                         negative_basic_workloads = negative_basic_workloads + n
                 else:
@@ -452,6 +452,7 @@ def worker():
                 for p in t['positive_edits']:
                     c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
                     if p[0] != 0 or p[1] != steps:
+                        print(f'Scheduling {p[2]} from {p[0]} to {p[1]}')
                         c[0][1]["start_percent"] = p[0] / steps
                         c[0][1]["end_percent"] = p[1] / steps
                     # c[0][1]["timestep_start"] = p[0]
@@ -467,6 +468,7 @@ def worker():
                     for p in t['negative_edits']:
                         c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
                         if p[0] != 0 or p[1] != steps:
+                            print(f'Scheduling {p[2]} from {p[0]} to {p[1]}')
                             c[0][1]["start_percent"] = p[0] / steps
                             c[0][1]["end_percent"] = p[1] / steps
                         # c[0][1]["timestep_start"] = p[0]
