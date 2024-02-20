@@ -141,6 +141,8 @@ def worker():
         inpaint_input_image = args.pop()
         inpaint_additional_prompt = args.pop()
         inpaint_mask_image_upload = args.pop()
+        token_normalization = args.pop()
+        weight_interpretation = args.pop()
 
         cn_tasks = {x: [] for x in flags.ip_list}
         for _ in range(4):
@@ -355,6 +357,12 @@ def worker():
         progressbar(async_task, 1, 'Initializing ...')
 
         if not skip_prompt_processing:
+            token_normalization_combined = ""
+            if "mean" in token_normalization:
+                token_normalization_combined += "mean"
+            if "length" in token_normalization:
+                token_normalization_combined += "length"
+            print(f'[Parameters] Token Normalization = {token_normalization_combined}')
 
             prompts = remove_empty_str([safe_str(p) for p in prompt.splitlines()], default='')
             negative_prompts = remove_empty_str([safe_str(p) for p in negative_prompt.splitlines()], default='')
@@ -391,7 +399,6 @@ def worker():
                 positive_basic_workloads = []
                 negative_basic_workloads = []
 
-                import ipdb; ipdb.set_trace()
                 if use_style:
                     for s in style_selections:
                         p, n = apply_style(s, positive=task_prompt)
@@ -416,6 +423,8 @@ def worker():
                     positive=positive_basic_workloads,
                     negative=negative_basic_workloads,
                     expansion='',
+                    token_normalization=token_normalization_combined,
+                    weight_interpretation=weight_interpretation,
                     c=None,
                     uc=None,
                     positive_top_k=len(positive_basic_workloads),
@@ -435,7 +444,6 @@ def worker():
 
             for i, t in enumerate(tasks):
                 progressbar(async_task, 7, f'Processing prompt edits #{i + 1} ...')
-                # import ipdb; ipdb.set_trace()
                 positive_basic_workloads_schedule = modules.prompt_processing.get_learned_conditioning_prompt_schedules(
                     t['positive'], base_steps=steps
                 )
@@ -447,11 +455,15 @@ def worker():
 
             for i, t in enumerate(tasks):
                 print("task prep")
-                # import ipdb; ipdb.set_trace()
                 progressbar(async_task, 7, f'Encoding positive #{i + 1} ...')
                 t['c'] = []
                 for p in t['positive_edits']:
-                    c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
+                    c = pipeline.clip_advanced_encode(
+                        texts=p[2],
+                        token_normalization=t['token_normalization'],
+                        weight_interpretation=t['weight_interpretation'],
+                        pool_top_k=len(p[2])
+                    )
                     if p[0] != 0 or p[1] != steps:
                         print(f'Scheduling {p[2]} from {p[0]} to {p[1]}')
                         c[0][1]["start_percent"] = p[0] / steps
@@ -467,7 +479,12 @@ def worker():
                     progressbar(async_task, 10, f'Encoding negative #{i + 1} ...')
                     t['uc'] = []
                     for p in t['negative_edits']:
-                        c = pipeline.clip_encode(texts=p[2], pool_top_k=len(p[2]))
+                        c = pipeline.clip_advanced_encode(
+                            texts=p[2],
+                            token_normalization=t['token_normalization'],
+                            weight_interpretation=t['weight_interpretation'],
+                            pool_top_k=len(p[2])
+                        )
                         if p[0] != 0 or p[1] != steps:
                             print(f'Scheduling {p[2]} from {p[0]} to {p[1]}')
                             c[0][1]["start_percent"] = p[0] / steps
@@ -822,6 +839,8 @@ def worker():
                         ('Sampler', sampler_name),
                         ('Scheduler', scheduler_name),
                         ('Seed', task['task_seed']),
+                        ('Token Normalization', token_normalization),
+                        ('Weight Interpretation', weight_interpretation),
                     ]
                     for li, (n, w) in enumerate(loras):
                         if n != 'None':

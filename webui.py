@@ -241,6 +241,18 @@ with shared.gradio_root:
                                              value=modules.config.default_prompt_negative)
                 seed_random = gr.Checkbox(label='Random', value=True)
                 image_seed = gr.Textbox(label='Seed', value=0, max_lines=1, visible=False) # workaround for https://github.com/gradio-app/gradio/issues/5354
+                token_normalization = gr.CheckboxGroup(
+                    label='Token Normalization',
+                    choices=flags.TOKEN_NORMALIZATION_OPTIONS,
+                    value=[],
+                    info="https://github.com/BlenderNeko/ComfyUI_ADV_CLIP_emb/tree/master?tab=readme-ov-file#token_normalization"
+                )
+                weight_interpretation = gr.Radio(
+                    label='Weight Interpretation',
+                    choices=flags.WEIGHT_INTERPRETATION_OPTIONS,
+                    value="A1111",
+                    info="https://github.com/BlenderNeko/ComfyUI_ADV_CLIP_emb/tree/master?tab=readme-ov-file#weight_interpretation"
+                )
 
                 def random_checked(r):
                     return gr.update(visible=not r)
@@ -547,6 +559,7 @@ with shared.gradio_root:
         ctrls += [uov_method, uov_input_image]
         ctrls += outpaint_multiplier_ctrls
         ctrls += [inpaint_input_image, inpaint_additional_prompt, inpaint_mask_image]
+        ctrls += [token_normalization, weight_interpretation]
         ctrls += ip_ctrls
 
         state_is_generating = gr.State(False)
@@ -594,6 +607,8 @@ with shared.gradio_root:
             scheduler_name,
             seed_random,
             image_seed,
+            token_normalization,
+            weight_interpretation,
             generate_button,
             load_parameter_button
         ] + lora_ctrls, queue=False, show_progress=False)

@@ -3,6 +3,8 @@ import numpy as np
 import itertools
 from math import gcd
 
+from ldm_patched.modules.sdxl_clip import SDXLClipG, SDXLClipModel, SDXLRefinerClipModel
+
 def _grouper(n, iterable):
     it = iter(iterable)
     while True:
@@ -222,7 +224,6 @@ def encode_token_weights(model, token_weight_pairs, encode_func):
     if model.layer_idx is not None:
         model.cond_stage_model.clip_layer(model.layer_idx)
     
-    model_management.load_model_gpu(model.patcher)
     return encode_func(model.cond_stage_model, token_weight_pairs)
 
 def prepareXL(embs_l, embs_g, pooled, clip_balance):

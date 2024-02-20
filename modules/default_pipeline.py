@@ -11,7 +11,7 @@ from extras.expansion import FooocusExpansion
 
 from ldm_patched.modules.model_base import SDXL, SDXLRefiner
 from modules.sample_hijack import clip_separate
-
+from modules.encode_clip_weights import advanced_encode
 
 model_base = core.StableDiffusionModel()
 model_refiner = core.StableDiffusionModel()
@@ -144,7 +144,6 @@ def clip_encode_single(clip, text, verbose=False):
         if verbose:
             print(f'[CLIP Cached] {text}')
         return cached
-    import ipdb; ipdb.set_trace()
     tokens = clip.tokenize(text)
     result = clip.encode_from_tokens(tokens, return_pooled=True)
     clip.fcs_cond_cache[text] = result
@@ -189,6 +188,38 @@ def clip_encode(texts, pool_top_k=1):
 
     for i, text in enumerate(texts):
         cond, pooled = clip_encode_single(final_clip, text)
+        cond_list.append(cond)
+        if i < pool_top_k:
+            pooled_acc += pooled
+
+    return [[torch.cat(cond_list, dim=1), {"pooled_output": pooled_acc}]]
+
+
+@torch.no_grad()
+@torch.inference_mode()
+def clip_advanced_encode(
+    texts, token_normalization, weight_interpretation,
+    pool_top_k=1,
+    w_max=1.0, clip_balance=.5, apply_to_pooled=True
+):
+    global final_clip
+
+    if final_clip is None:
+        return None
+    if not isinstance(texts, list):
+        return None
+    if len(texts) == 0:
+        return None
+
+    cond_list = []
+    pooled_acc = 0
+
+    for i, text in enumerate(texts):
+        cond, pooled = advanced_encode(
+            final_clip, text,
+            token_normalization, weight_interpretation,
+            w_max, clip_balance, apply_to_pooled
+        )
         cond_list.append(cond)
         if i < pool_top_k:
             pooled_acc += pooled

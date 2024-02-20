@@ -42,3 +42,6 @@ inpaint_options = [inpaint_option_default, inpaint_option_detail, inpaint_option
 
 desc_type_photo = 'Photograph'
 desc_type_anime = 'Art/Anime'
+
+TOKEN_NORMALIZATION_OPTIONS = ["mean", "length"]
+WEIGHT_INTERPRETATION_OPTIONS = ["comfy", "A1111", "compel", "comfy++", "down_weight"]

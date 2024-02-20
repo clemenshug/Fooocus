@@ -128,6 +128,20 @@ def load_parameter_button_click(raw_prompt_txt, is_generating):
         results.append(gr.update())
         results.append(gr.update())
 
+    try:
+        h = loaded_parameter_dict.get('Token Normalization', None)
+        assert isinstance(h, list)
+        results.append(h)
+    except:
+        results.append(gr.update())
+    
+    try:
+        h = loaded_parameter_dict.get('Weight Interpretation', None)
+        assert isinstance(h, str)
+        results.append(h)
+    except:
+        results.append(gr.update())
+
     if is_generating:
         results.append(gr.update())
     else:
