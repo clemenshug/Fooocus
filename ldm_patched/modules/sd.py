@@ -131,6 +131,7 @@ class CLIP:
         return cond
 
     def encode(self, text):
+        import ipdb; ipdb.set_trace()
         tokens = self.tokenize(text)
         return self.encode_from_tokens(tokens)
 

@@ -391,6 +391,7 @@ def worker():
                 positive_basic_workloads = []
                 negative_basic_workloads = []
 
+                import ipdb; ipdb.set_trace()
                 if use_style:
                     for s in style_selections:
                         p, n = apply_style(s, positive=task_prompt)

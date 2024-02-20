@@ -54,6 +54,7 @@ class CLIPTextEncode:
     CATEGORY = "conditioning"
 
     def encode(self, clip, text):
+        import ipdb; ipdb.set_trace()
         tokens = clip.tokenize(text)
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
         return ([[cond, {"pooled_output": pooled}]], )

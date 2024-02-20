@@ -23,6 +23,7 @@ from transformers import CLIPTextModel, CLIPTextConfig, modeling_utils, CLIPVisi
 
 
 def patched_encode_token_weights(self, token_weight_pairs):
+    import ipdb; ipdb.set_trace()
     to_encode = list()
     max_token_len = 0
     has_weights = False

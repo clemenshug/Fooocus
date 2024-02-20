@@ -144,6 +144,7 @@ def clip_encode_single(clip, text, verbose=False):
         if verbose:
             print(f'[CLIP Cached] {text}')
         return cached
+    import ipdb; ipdb.set_trace()
     tokens = clip.tokenize(text)
     result = clip.encode_from_tokens(tokens, return_pooled=True)
     clip.fcs_cond_cache[text] = result

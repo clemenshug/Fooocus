@@ -41,6 +41,7 @@ class CLIPTextEncodeSDXL:
     CATEGORY = "advanced/conditioning"
 
     def encode(self, clip, width, height, crop_w, crop_h, target_width, target_height, text_g, text_l):
+        import ipdb; ipdb.set_trace()
         tokens = clip.tokenize(text_g)
         tokens["l"] = clip.tokenize(text_l)["l"]
         if len(tokens["l"]) != len(tokens["g"]):
